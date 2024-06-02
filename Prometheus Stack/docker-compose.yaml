@@ -1,0 +1,46 @@
+version: '3'
+services:
+  init:
+    image: busybox:1.36
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      - "chown 472 /grafana_data; chown 65534 /prometheus_data;"
+    volumes:
+      - ./data/grafana_data:/grafana_data
+      - ./data/prometheus_data:/prometheus_data
+    restart: 'no'
+
+  prometheus:
+    image: prom/prometheus:v2.45.2
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yaml
+      - ./data/prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+    ports:
+      - '9090:9090'
+    depends_on:
+      - init
+
+  grafana:
+    image: grafana/grafana:9.5.15
+    container_name: grafana
+    volumes:
+      - ./data/grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: root
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - init
+      - prometheus
+    ports:
+      - '3000:3000'
+
+  jmx-exporter:
+    image: docker.io/bitnami/jmx-exporter:0.19.0
+    command: ["5556", "kafka_config.yml"]
+    volumes:
+      - ./config/kafka_config.yml:/opt/bitnami/jmx-exporter/config.yml
+    ports:
+      - 5556:5556
